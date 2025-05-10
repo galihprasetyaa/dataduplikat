@@ -1,16 +1,15 @@
-
 import streamlit as st
 import pandas as pd
 
 # Konfigurasi halaman
-st.set_page_config(page_title="Cek Duplikat Data CSV", layout="wide")
+st.set_page_config(page_title="Cek Duplikat per Kolom", layout="wide")
 
 # Header aplikasi
-st.title("Deteksi Data Duplikat pada CSV")
-st.markdown("Unggah file CSV Anda dan temukan baris yang duplikat berdasarkan seluruh atau sebagian kolom.")
+st.title("🔍 Deteksi Nilai Duplikat pada Kolom CSV")
+st.markdown("Unggah file CSV dan pilih kolom untuk mendeteksi nilai yang muncul lebih dari satu kali.")
 
 # Upload file
-uploaded_file = st.file_uploader("Pilih file CSV", type=["csv"])
+uploaded_file = st.file_uploader("📁 Unggah file CSV", type=["csv"])
 
 if uploaded_file is not None:
     try:
@@ -20,29 +19,38 @@ if uploaded_file is not None:
         except UnicodeDecodeError:
             df = pd.read_csv(uploaded_file, encoding="latin1")
 
-        st.subheader("Data Awal")
-        st.write(f"Bentuk data: {df.shape}")
+        st.subheader("📋 Pratinjau Data")
+        st.write(f"Ukuran data: {df.shape}")
         st.dataframe(df.head())
 
-        # Pilihan kolom untuk cek duplikat
-        st.subheader("Deteksi Duplikat")
-        st.markdown("Pilih kolom yang ingin Anda gunakan untuk mendeteksi duplikat. Biarkan kosong untuk menggunakan semua kolom.")
+        # Pilih kolom untuk cek duplikat
+        st.subheader("🔁 Pilih Kolom untuk Pengecekan Duplikat")
+        selected_column = st.selectbox("Pilih satu kolom", df.columns.tolist())
 
-        selected_columns = st.multiselect("Kolom untuk deteksi duplikat", options=df.columns.tolist())
+        if selected_column:
+            duplicated_values = df[selected_column][df[selected_column].duplicated(keep=False)]
+            result_df = df[df[selected_column].isin(duplicated_values)]
 
-        # Cari duplikat
-        if len(selected_columns) == 0:
-            duplicates = df[df.duplicated(keep=False)]
-        else:
-            duplicates = df[df.duplicated(subset=selected_columns, keep=False)]
+            count_duplicates = duplicated_values.value_counts()
 
-        st.write(f"Jumlah baris duplikat yang ditemukan: {duplicates.shape[0]}")
-        if not duplicates.empty:
-            st.dataframe(duplicates)
-        else:
-            st.success("Tidak ditemukan data duplikat.")
+            st.write(f"Jumlah nilai duplikat yang ditemukan: {len(count_duplicates)}")
+            if not result_df.empty:
+                st.subheader("📑 Baris dengan Nilai Duplikat")
+                st.dataframe(result_df)
+
+                st.subheader("📈 Ringkasan Jumlah Duplikat")
+                st.dataframe(count_duplicates.reset_index().rename(columns={
+                    "index": selected_column,
+                    selected_column: "Jumlah Kemunculan"
+                }))
+
+                # Export hasil
+                csv = result_df.to_csv(index=False).encode("utf-8")
+                st.download_button("⬇️ Unduh Baris Duplikat", csv, "baris_duplikat.csv", "text/csv")
+            else:
+                st.success("Tidak ada nilai duplikat di kolom yang dipilih.")
 
     except Exception as e:
-        st.error(f"Terjadi kesalahan saat memproses file: {str(e)}")
+        st.error(f"Terjadi kesalahan saat membaca file: {str(e)}")
 else:
     st.info("Silakan unggah file CSV terlebih dahulu.")
